@@ -1,2 +1,0 @@
-# apt packages required by the Streamlit Cloud / Debian container.
-# (none currently — Python deps are in requirements.txt)
