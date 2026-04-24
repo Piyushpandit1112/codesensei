@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+.cache/
+.codesensei_cache/
+.streamlit/secrets.toml
+*.mp3
+*.wav
+data/notes/
+.DS_Store
+.idea/
+.vscode/
+*.log

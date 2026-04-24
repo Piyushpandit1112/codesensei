@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+:root {
+  --bg-1:#0b1020; --bg-2:#131a35; --card:#1a2140; --card-2:#141b38;
+  --border:#2a3356; --text:#e7ecff; --muted:#9aa6cf;
+  --accent:#6c8cff; --accent-2:#b06bff;
+  --warn:#fbbf24; --ok:#34d399; --danger:#f87171; --info:#60a5fa;
+}
+* { box-sizing: border-box; }
+html,body { margin:0; padding:0; background:transparent; color:var(--text);
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+
+.stage {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(108,140,255,.18), transparent 60%),
+    radial-gradient(900px 400px at 110% 110%, rgba(176,107,255,.18), transparent 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  border:1px solid var(--border); border-radius:18px;
+  padding:18px 20px 14px;
+  box-shadow: 0 30px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
+  position: relative;
+}
+
+.topbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.pill {
+  padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.06);
+  border:1px solid var(--border); font-size:12px; color:var(--muted);
+}
+.pill b { color:var(--text); font-weight:700; }
+
+.layout { display:grid; gap:12px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .layout.with-code { grid-template-columns: 1.4fr 1fr; } }
+
+.panels { display:grid; gap:12px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .panels.two { grid-template-columns: 1fr 1fr; } }
+
+.panel {
+  background: var(--card); border:1px solid var(--border);
+  border-radius:12px; padding:12px 14px; position:relative;
+}
+.panel h4 {
+  margin:0 0 8px; font-size:11px; font-weight:700;
+  color:var(--muted); letter-spacing:.08em; text-transform:uppercase;
+}
+.panel.wide { grid-column: 1 / -1; }
+
+/* ARRAY / STRING cells */
+.row { display:flex; gap:8px; flex-wrap:wrap; min-height:72px; align-items:flex-end; padding-top:24px; }
+.cell {
+  position:relative; min-width:44px; height:46px; padding:0 8px;
+  border-radius:9px; display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:16px;
+  background: linear-gradient(180deg,#24305e,#1a2140);
+  border:1px solid var(--border); color:var(--text);
+  transition: transform .35s cubic-bezier(.2,.9,.2,1.3),
+              box-shadow .35s, background .35s, border-color .35s;
+}
+.cell .idx { position:absolute; bottom:-17px; font-size:10px; color:var(--muted); }
+.cell .ptr {
+  position:absolute; top:-22px; font-size:10px; font-weight:800; color:var(--warn);
+  padding:2px 5px; background:rgba(251,191,36,.12);
+  border:1px solid rgba(251,191,36,.35); border-radius:5px;
+  animation: bob 1.4s ease-in-out infinite; white-space:nowrap;
+}
+.cell.hl {
+  background: linear-gradient(180deg,#6c8cff,#4f6ff0);
+  border-color:#93a9ff; transform:translateY(-5px) scale(1.05);
+  box-shadow: 0 10px 24px rgba(108,140,255,.45), 0 0 0 3px rgba(108,140,255,.2);
+}
+.cell.match {
+  background: linear-gradient(180deg,#34d399,#10b981);
+  border-color:#6ee7b7; transform:translateY(-6px) scale(1.07);
+  box-shadow: 0 12px 26px rgba(52,211,153,.45);
+}
+.cell.visited {
+  background: linear-gradient(180deg,#4b5563,#374151);
+  border-color:#6b7280; color:#d1d5db;
+}
+@keyframes bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+
+/* HASHMAP */
+.kvwrap {
+  display:flex; flex-wrap:wrap; gap:6px; min-height:44px;
+  background:rgba(255,255,255,.03); border:1px dashed var(--border);
+  border-radius:9px; padding:8px; font-family:ui-monospace,monospace;
+}
+.kv {
+  padding:5px 9px; border-radius:7px;
+  background: linear-gradient(180deg,rgba(176,107,255,.25),rgba(176,107,255,.12));
+  border:1px solid rgba(176,107,255,.4); color:#eadcff;
+  font-size:12px; font-weight:700; animation: pop .35s ease;
+}
+.empty { color:var(--muted); font-style:italic; font-size:12px; }
+@keyframes pop { from{transform:scale(.6);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+/* STACK */
+.stack-wrap {
+  display:flex; flex-direction:column-reverse; align-items:flex-start; gap:5px;
+  min-height:70px; padding:8px; border:1px dashed var(--border);
+  border-radius:9px; background:rgba(255,255,255,.03);
+}
+.stack-item {
+  min-width:70px; padding:6px 10px; border-radius:7px; font-weight:700; font-size:13px;
+  background: linear-gradient(180deg,#2b3b72,#1a2140); border:1px solid #3a4476;
+  animation: slideIn .35s ease;
+}
+.stack-item.top { border-color:var(--accent); box-shadow: 0 6px 14px rgba(108,140,255,.3); }
+.stack-label { color:var(--muted); font-size:10px; margin-left:5px; }
+@keyframes slideIn { from{transform:translateY(-12px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+
+/* QUEUE */
+.queue-wrap {
+  display:flex; gap:5px; min-height:56px; padding:8px;
+  border:1px dashed var(--border); border-radius:9px;
+  background:rgba(255,255,255,.03); align-items:center; overflow-x:auto;
+}
+.queue-item {
+  padding:6px 10px; border-radius:7px; font-weight:700; font-size:13px;
+  background: linear-gradient(180deg,#2b3b72,#1a2140); border:1px solid #3a4476;
+  animation: pop .35s ease;
+}
+.queue-item.front { border-color:var(--ok); box-shadow: 0 5px 12px rgba(52,211,153,.3); }
+
+/* DP / GRID */
+.dp-row { display:flex; gap:3px; }
+.dp-cell {
+  min-width:38px; height:32px; padding:0 6px; border-radius:5px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700;
+  background:#1a2140; border:1px solid var(--border); color:var(--text);
+  transition:all .3s;
+}
+.dp-cell.hl { background: linear-gradient(180deg,#6c8cff,#4f6ff0); border-color:#93a9ff;
+              transform:scale(1.1); box-shadow: 0 4px 10px rgba(108,140,255,.4); }
+.dp-cell.empty-c { color:var(--muted); }
+.dp-cell.visited { background:#374151; border-color:#6b7280; color:#d1d5db; }
+.dp-cell.path { background:linear-gradient(180deg,#34d399,#10b981); border-color:#6ee7b7; }
+.dp-cell.wall { background:#1f2937; color:#6b7280; }
+
+/* VARS */
+.vars { display:flex; flex-wrap:wrap; gap:6px; }
+.var-chip {
+  padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;
+  background:rgba(108,140,255,.12); border:1px solid rgba(108,140,255,.35);
+  color:#c5d3ff; font-family:ui-monospace,monospace;
+}
+.var-chip b { color:var(--warn); margin-left:3px; }
+.var-chip.answer { background:rgba(52,211,153,.12); border-color:rgba(52,211,153,.5); color:#a7f3d0; }
+
+/* SVG panels (tree / graph / linked list / recursion) */
+.svg-wrap { width:100%; overflow:auto; border:1px dashed var(--border);
+            border-radius:9px; background:rgba(255,255,255,.02); padding:6px; }
+.svg-wrap svg { display:block; margin:0 auto; }
+.node-c { fill:#24305e; stroke:#93a9ff; stroke-width:1.5; transition:all .3s; }
+.node-c.hl { fill:url(#hlGrad); stroke:#c5d3ff; stroke-width:2.5; }
+.node-c.visited { fill:#374151; stroke:#6b7280; }
+.node-c.match { fill:#10b981; stroke:#6ee7b7; }
+.node-c.active { fill:url(#actGrad); stroke:#fbbf24; stroke-width:2.5; }
+.node-c.returned { fill:#065f46; stroke:#10b981; stroke-dasharray:3,2; }
+.node-c.pruned  { fill:#7f1d1d; stroke:#f87171; stroke-dasharray:2,3; opacity:.6; }
+.node-t { fill:#fff; font-size:13px; font-weight:800; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+.node-sub { fill:#cbd5f5; font-size:10px; text-anchor:middle; font-family:ui-monospace,monospace; }
+.edge-l { stroke:#64748b; stroke-width:1.5; fill:none; marker-end:url(#arrow); transition:stroke .3s; }
+.edge-l.hl { stroke:#6c8cff; stroke-width:2.5; }
+.edge-l.tree { marker-end:none; }
+.edge-weight { fill:#fbbf24; font-size:10px; font-family:ui-monospace,monospace; font-weight:700; }
+
+/* CODE panel with line highlight */
+.code-panel { font-family: ui-monospace, "Cascadia Code", monospace; font-size:12.5px;
+              background: #0f1530; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.code-line { display:flex; padding:3px 10px 3px 0; gap:10px; align-items:baseline;
+             border-left:3px solid transparent; transition: background .25s, border-color .25s; white-space:pre; }
+.code-line .ln { color:#4a5585; min-width:28px; text-align:right; font-size:11px; user-select:none; }
+.code-line .tx { color:#c9d2f5; }
+.code-line.active {
+  background: linear-gradient(90deg, rgba(108,140,255,.25), rgba(108,140,255,.05));
+  border-left-color: var(--accent);
+}
+.code-line.active .tx { color:#fff; font-weight:600; }
+
+/* CAPTION */
+.cap {
+  background: linear-gradient(90deg, rgba(108,140,255,.18), rgba(176,107,255,.10));
+  border-left:4px solid var(--accent); border-radius:10px;
+  padding:12px 14px; margin-top:12px; min-height:58px;
+}
+.cap .hi { font-size:16px; line-height:1.55; font-weight:600; }
+.cap .en { margin-top:5px; color:var(--muted); font-size:12px; font-style:italic; }
+
+/* Controls */
+.track { height:5px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden;
+         margin-top:12px; border:1px solid var(--border); }
+.bar { height:100%; width:0%; background: linear-gradient(90deg,var(--accent),var(--accent-2));
+       transition:width .35s ease; }
+.ctrls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+button {
+  background:rgba(255,255,255,.06); color:var(--text); border:1px solid var(--border);
+  padding:8px 14px; border-radius:9px; cursor:pointer; font-weight:700; font-size:13px;
+  transition: transform .15s, background .2s;
+}
+button:hover { background:rgba(255,255,255,.12); transform:translateY(-1px); }
+button.primary {
+  background: linear-gradient(180deg,#6c8cff,#4f6ff0);
+  border-color:#6c8cff; color:white; box-shadow: 0 8px 20px rgba(108,140,255,.35);
+}
+select { background:rgba(255,255,255,.06); color:var(--text); border:1px solid var(--border);
+         padding:6px 9px; border-radius:7px; font-size:12px; }
+.spacer { flex:1; }
+.counter { color:var(--muted); font-size:12px; }
+
+.overlay {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(10,14,30,.85); backdrop-filter: blur(6px); border-radius:18px; z-index:10; cursor:pointer;
+}
+.overlay .inner {
+  padding:16px 26px; background: linear-gradient(180deg,#6c8cff,#4f6ff0);
+  border-radius:14px; color:white; font-weight:800; font-size:14px;
+  box-shadow: 0 20px 40px rgba(108,140,255,.45);
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="overlay" id="gate"><div class="inner">▶ Click to start animation + audio</div></div>
+
+  <div class="topbar">
+    <span class="pill">Template: <b id="tplVal">—</b></span>
+    <span class="pill">Step <b id="stepN">0</b> / <b id="stepT">0</b></span>
+    <span class="pill">🔊 <span id="audioSrc">—</span></span>
+  </div>
+
+  <div class="layout" id="layout">
+    <div id="panels" class="panels"></div>
+    <div id="codeHost"></div>
+  </div>
+
+  <div class="cap" id="cap">
+    <div class="hi" id="hi">—</div>
+    <div class="en" id="en"></div>
+  </div>
+
+  <div class="track"><div class="bar" id="bar"></div></div>
+
+  <div class="ctrls">
+    <button id="prev">◀ Prev</button>
+    <button id="play" class="primary">▶ Play</button>
+    <button id="next">Next ▶</button>
+    <button id="replay">↻ Restart</button>
+    <label class="counter">Speed
+      <select id="speed">
+        <option value="0.85">0.85×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.2">1.2×</option>
+        <option value="1.5">1.5×</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <span class="counter" id="counter">0 / 0</span>
+  </div>
+</div>
+
+<script>
+const SCRIPT = __FRAME_SCRIPT__;
+const AUDIO  = __AUDIO_MAP__;
+const STITCHED_URI = __STITCHED_URI__;
+const FRAME_ENDS   = __FRAME_ENDS__;   // cumulative end-time (seconds) per frame
+
+const $panels   = document.getElementById('panels');
+const $codeHost = document.getElementById('codeHost');
+const $layout   = document.getElementById('layout');
+const $tplVal   = document.getElementById('tplVal');
+const $stepN    = document.getElementById('stepN');
+const $stepT    = document.getElementById('stepT');
+const $counter  = document.getElementById('counter');
+const $bar      = document.getElementById('bar');
+const $hi       = document.getElementById('hi');
+const $en       = document.getElementById('en');
+const $audioSrc = document.getElementById('audioSrc');
+const $gate     = document.getElementById('gate');
+
+let idx = 0, playing = false, currentAudio = null, speed = 1, started = false;
+let state = JSON.parse(JSON.stringify(SCRIPT.initial_state || {}));
+
+const total = (SCRIPT.frames || []).length;
+$stepT.textContent = total;
+$tplVal.textContent = SCRIPT.template || 'generic';
+
+function deepMerge(dst, patch) {
+  for (const k in patch) {
+    const v = patch[k];
+    if (v === null) { dst[k] = null; continue; }
+    if (Array.isArray(v)) { dst[k] = v; continue; }
+    if (typeof v === 'object' && dst[k] && typeof dst[k] === 'object' && !Array.isArray(dst[k])) {
+      deepMerge(dst[k], v);
+    } else { dst[k] = v; }
+  }
+}
+function rebuildState(upto) {
+  state = JSON.parse(JSON.stringify(SCRIPT.initial_state || {}));
+  for (let i = 0; i <= upto && i < total; i++) {
+    deepMerge(state, SCRIPT.frames[i].state_patch || {});
+  }
+}
+function has(k) { return state[k] !== undefined && state[k] !== null; }
+function nonEmpty(v) {
+  return v !== null && v !== undefined
+    && !(Array.isArray(v) && v.length === 0)
+    && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- SVG defs (reused across panels) ---------- */
+function svgDefs() {
+  return `<defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"></path>
+    </marker>
+    <linearGradient id="hlGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#6c8cff"/><stop offset="1" stop-color="#4f6ff0"/>
+    </linearGradient>
+    <linearGradient id="actGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>`;
+}
+
+/* ---------- ARRAY / STRING / HEAP ---------- */
+function renderArrayLike(values, title, frame, asString) {
+  const p = document.createElement('div'); p.className = 'panel';
+  p.innerHTML = `<h4>${title}</h4>`;
+  const row = document.createElement('div'); row.className = 'row';
+  const hl = new Set((frame.highlights || []).filter(x => typeof x === 'number'));
+  const visited = new Set(state.vars && Array.isArray(state.vars.visited) ? state.vars.visited : []);
+  const ptrByIdx = {};
+  for (const k in (frame.pointers || {})) {
+    const v = frame.pointers[k];
+    if (typeof v === 'number') (ptrByIdx[v] = ptrByIdx[v] || []).push(k);
+  }
+  const matched = (state.vars && Array.isArray(state.vars.answer))
+                   ? new Set(state.vars.answer.filter(x => typeof x === 'number')) : new Set();
+  const arr = asString ? String(values).split('') : values;
+  arr.forEach((v, j) => {
+    const d = document.createElement('div');
+    let cls = 'cell' + (matched.has(j) ? ' match' : (hl.has(j) ? ' hl' : (visited.has(j) ? ' visited' : '')));
+    d.className = cls;
+    d.innerHTML = `${esc(v)}<span class="idx">[${j}]</span>` +
+                  (ptrByIdx[j] ? `<span class="ptr">${ptrByIdx[j].join(',')}</span>` : '');
+    row.appendChild(d);
+  });
+  p.appendChild(row);
+  return p;
+}
+
+/* ---------- HASHMAP / SET ---------- */
+function renderHashmap(obj, title) {
+  const p = document.createElement('div'); p.className = 'panel';
+  p.innerHTML = `<h4>${title || 'Hash map'}</h4>`;
+  const wrap = document.createElement('div'); wrap.className = 'kvwrap';
+  if (Array.isArray(obj)) {  // treat list as a Set
+    if (!obj.length) wrap.innerHTML = '<span class="empty">empty</span>';
+    else obj.forEach(v => {
+      const el = document.createElement('span'); el.className='kv'; el.textContent = v; wrap.appendChild(el);
+    });
+  } else {
+    const keys = Object.keys(obj || {});
+    if (!keys.length) wrap.innerHTML = '<span class="empty">empty</span>';
+    else keys.forEach(k => {
+      const el = document.createElement('span'); el.className='kv';
+      el.textContent = `${k} → ${JSON.stringify(obj[k])}`;
+      wrap.appendChild(el);
+    });
+  }
+  p.appendChild(wrap);
+  return p;
+}
+
+/* ---------- STACK / QUEUE ---------- */
+function renderStack(arr) {
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>Stack <span class="stack-label">(top at top)</span></h4>`;
+  const wrap = document.createElement('div'); wrap.className='stack-wrap';
+  if (!arr || !arr.length) wrap.innerHTML='<span class="empty">empty</span>';
+  else arr.forEach((v,i) => {
+    const el = document.createElement('div');
+    el.className = 'stack-item' + (i === arr.length - 1 ? ' top' : '');
+    el.textContent = typeof v === 'object' ? JSON.stringify(v) : v;
+    wrap.appendChild(el);
+  });
+  p.appendChild(wrap); return p;
+}
+function renderQueue(arr) {
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>Queue <span class="stack-label">(front ← ← back)</span></h4>`;
+  const wrap = document.createElement('div'); wrap.className='queue-wrap';
+  if (!arr || !arr.length) wrap.innerHTML='<span class="empty">empty</span>';
+  else arr.forEach((v,i) => {
+    const el = document.createElement('div');
+    el.className = 'queue-item' + (i === 0 ? ' front' : '');
+    el.textContent = typeof v === 'object' ? JSON.stringify(v) : v;
+    wrap.appendChild(el);
+  });
+  p.appendChild(wrap); return p;
+}
+
+/* ---------- DP / GRID ---------- */
+function renderDP(dp, frame) {
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>DP table</h4>`;
+  const hlIJ = (state.vars && state.vars.dp_cell) || null;
+  const rows = Array.isArray(dp[0]) ? dp : [dp];
+  rows.forEach((r, ri) => {
+    const row = document.createElement('div'); row.className='dp-row';
+    r.forEach((v, ci) => {
+      const c = document.createElement('div');
+      const val = (v === null || v === undefined) ? '·' : v;
+      let active = hlIJ && Array.isArray(hlIJ) && hlIJ[0] === ri && hlIJ[1] === ci;
+      if (!Array.isArray(dp[0]) && hlIJ && typeof hlIJ === 'number') active = (ci === hlIJ);
+      c.className = 'dp-cell' + (v === null || v === undefined ? ' empty-c' : '') + (active ? ' hl' : '');
+      c.textContent = val;
+      row.appendChild(c);
+    });
+    p.appendChild(row);
+  });
+  return p;
+}
+function renderGrid(grid) {
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>Grid</h4>`;
+  const hl = (state.vars && state.vars.grid_cell) || null;
+  const visited = (state.vars && Array.isArray(state.vars.grid_visited)) ? state.vars.grid_visited : [];
+  const path = (state.vars && Array.isArray(state.vars.grid_path)) ? state.vars.grid_path : [];
+  const isIn = (arr, r, c) => arr.some(p => Array.isArray(p) && p[0] === r && p[1] === c);
+  grid.forEach((r, ri) => {
+    const row = document.createElement('div'); row.className='dp-row';
+    r.forEach((v, ci) => {
+      const c = document.createElement('div');
+      const active = hl && hl[0] === ri && hl[1] === ci;
+      let cls = 'dp-cell';
+      if (String(v) === '#' || v === 1 && state.grid_walls) cls += ' wall';
+      if (isIn(visited, ri, ci)) cls += ' visited';
+      if (isIn(path, ri, ci))    cls += ' path';
+      if (active) cls += ' hl';
+      c.className = cls; c.textContent = v;
+      row.appendChild(c);
+    });
+    p.appendChild(row);
+  });
+  return p;
+}
+
+/* ---------- LINKED LIST (SVG nodes + arrows) ---------- */
+function renderLinkedList(arr, frame) {
+  const p = document.createElement('div'); p.className='panel wide';
+  p.innerHTML = `<h4>Linked list</h4>`;
+  const n = arr.length;
+  const R = 22, gap = 68;
+  const W = Math.max(200, n * gap + 80), H = 90;
+  const hl = new Set((frame.highlights || []).filter(x => typeof x === 'number'));
+  const ptrs = {};
+  for (const k in (frame.pointers || {})) {
+    const v = frame.pointers[k];
+    if (typeof v === 'number') (ptrs[v] = ptrs[v] || []).push(k);
+  }
+  let inner = svgDefs();
+  arr.forEach((v, i) => {
+    const cx = 40 + i * gap, cy = 50;
+    const nodeClass = 'node-c' + (hl.has(i) ? ' hl' : '');
+    inner += `<circle class="${nodeClass}" cx="${cx}" cy="${cy}" r="${R}"></circle>`;
+    inner += `<text class="node-t" x="${cx}" y="${cy}">${esc(v)}</text>`;
+    if (ptrs[i]) inner += `<text class="node-sub" x="${cx}" y="${cy - R - 8}" fill="#fbbf24">${ptrs[i].join(',')}</text>`;
+    if (i < n - 1) {
+      const x1 = cx + R + 2, x2 = 40 + (i + 1) * gap - R - 4;
+      inner += `<line class="edge-l" x1="${x1}" y1="${cy}" x2="${x2}" y2="${cy}"></line>`;
+    } else {
+      inner += `<text class="node-sub" x="${cx + R + 18}" y="${cy + 4}">NULL</text>`;
+    }
+  });
+  const wrap = document.createElement('div'); wrap.className='svg-wrap';
+  wrap.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${inner}</svg>`;
+  p.appendChild(wrap); return p;
+}
+
+/* ---------- BINARY TREE (level-order array with null) ---------- */
+function renderTree(arr, frame) {
+  const p = document.createElement('div'); p.className='panel wide';
+  p.innerHTML = `<h4>Tree</h4>`;
+  // compute positions
+  const n = arr.length;
+  const depth = Math.floor(Math.log2(Math.max(1, n))) + 1;
+  const leaves = Math.pow(2, depth - 1);
+  const W = Math.max(320, leaves * 70);
+  const H = depth * 80 + 20;
+  const R = 20;
+  const hl = new Set((frame.highlights || []).map(String));
+  const ptrs = {};
+  for (const k in (frame.pointers || {})) {
+    const v = frame.pointers[k];
+    (ptrs[String(v)] = ptrs[String(v)] || []).push(k);
+  }
+  const positions = [];
+  for (let i = 0; i < n; i++) {
+    if (arr[i] === null || arr[i] === undefined) { positions.push(null); continue; }
+    const level = Math.floor(Math.log2(i + 1));
+    const posInLevel = i - (Math.pow(2, level) - 1);
+    const slots = Math.pow(2, level);
+    const x = (W / (slots + 1)) * (posInLevel + 1);
+    const y = 35 + level * 80;
+    positions.push({ x, y });
+  }
+  let edges = '', nodes = '';
+  for (let i = 0; i < n; i++) {
+    const me = positions[i]; if (!me) continue;
+    const l = 2 * i + 1, r = 2 * i + 2;
+    if (l < n && positions[l]) edges += `<line class="edge-l tree" x1="${me.x}" y1="${me.y}" x2="${positions[l].x}" y2="${positions[l].y}"></line>`;
+    if (r < n && positions[r]) edges += `<line class="edge-l tree" x1="${me.x}" y1="${me.y}" x2="${positions[r].x}" y2="${positions[r].y}"></line>`;
+  }
+  for (let i = 0; i < n; i++) {
+    const me = positions[i]; if (!me) continue;
+    const key = String(i);
+    const cls = 'node-c' + (hl.has(key) || hl.has(String(arr[i])) ? ' hl' : '');
+    nodes += `<circle class="${cls}" cx="${me.x}" cy="${me.y}" r="${R}"></circle>`;
+    nodes += `<text class="node-t" x="${me.x}" y="${me.y}">${esc(arr[i])}</text>`;
+    const lbls = ptrs[key] || ptrs[String(arr[i])];
+    if (lbls) nodes += `<text class="node-sub" x="${me.x}" y="${me.y - R - 6}" fill="#fbbf24">${lbls.join(',')}</text>`;
+  }
+  const wrap = document.createElement('div'); wrap.className='svg-wrap';
+  wrap.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svgDefs()}${edges}${nodes}</svg>`;
+  p.appendChild(wrap); return p;
+}
+
+/* ---------- GRAPH (nodes + edges with positions) ---------- */
+function renderGraph(g, frame) {
+  const p = document.createElement('div'); p.className='panel wide';
+  p.innerHTML = `<h4>Graph</h4>`;
+  const nodes = g.nodes || [];
+  const edges = g.edges || [];
+  // if positions absent, auto-layout on a circle
+  const missingXY = nodes.some(n => n.x === undefined || n.y === undefined);
+  const W = 520, H = 300;
+  if (missingXY) {
+    const N = nodes.length || 1;
+    nodes.forEach((nd, i) => {
+      const a = (2 * Math.PI * i) / N;
+      nd.x = W/2 + Math.cos(a) * Math.min(W, H) / 2.8;
+      nd.y = H/2 + Math.sin(a) * Math.min(W, H) / 2.8;
+    });
+  }
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  const hl = new Set((frame.highlights || []).map(String));
+  const visited = new Set((state.vars && state.vars.graph_visited) || []);
+  const ptrs = {};
+  for (const k in (frame.pointers || {})) {
+    const v = frame.pointers[k];
+    (ptrs[String(v)] = ptrs[String(v)] || []).push(k);
+  }
+  const hlEdgeSet = new Set(((state.vars && state.vars.graph_edges_hl) || []).map(e => e[0]+'-'+e[1]));
+  let ev = '', nv = '';
+  edges.forEach(e => {
+    const u = byId[e.u], v = byId[e.v]; if (!u || !v) return;
+    const key = e.u + '-' + e.v;
+    const cls = 'edge-l' + (hlEdgeSet.has(key) ? ' hl' : '') + (e.directed ? '' : ' tree');
+    ev += `<line class="${cls}" x1="${u.x}" y1="${u.y}" x2="${v.x}" y2="${v.y}"></line>`;
+    if (e.w !== undefined) {
+      const mx = (u.x + v.x) / 2, my = (u.y + v.y) / 2 - 4;
+      ev += `<text class="edge-weight" x="${mx}" y="${my}">${e.w}</text>`;
+    }
+  });
+  nodes.forEach(nd => {
+    const cls = 'node-c' + (hl.has(String(nd.id)) ? ' hl' : (visited.has(nd.id) ? ' visited' : ''));
+    nv += `<circle class="${cls}" cx="${nd.x}" cy="${nd.y}" r="22"></circle>`;
+    nv += `<text class="node-t" x="${nd.x}" y="${nd.y}">${esc(nd.label !== undefined ? nd.label : nd.id)}</text>`;
+    if (ptrs[String(nd.id)]) nv += `<text class="node-sub" x="${nd.x}" y="${nd.y - 30}" fill="#fbbf24">${ptrs[String(nd.id)].join(',')}</text>`;
+  });
+  const wrap = document.createElement('div'); wrap.className='svg-wrap';
+  wrap.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svgDefs()}${ev}${nv}</svg>`;
+  p.appendChild(wrap); return p;
+}
+
+/* ---------- RECURSION / CALL TREE ---------- */
+/* recursion.calls = [{id, label, parent, status:'active'|'returned'|'pruned', ret?}] */
+function renderRecursion(rec, frame) {
+  const p = document.createElement('div'); p.className='panel wide';
+  p.innerHTML = `<h4>Recursion call tree</h4>`;
+  const calls = (rec && rec.calls) || [];
+  if (!calls.length) { p.innerHTML += '<div class="empty" style="padding:10px;">no calls yet</div>'; return p; }
+  // layout: assign depth by walking parents; x via in-order leaf placement
+  const byId = {}; calls.forEach(c => byId[c.id] = Object.assign({ children: [] }, c));
+  const roots = [];
+  calls.forEach(c => {
+    if (c.parent === null || c.parent === undefined || !byId[c.parent]) roots.push(byId[c.id]);
+    else byId[c.parent].children.push(byId[c.id]);
+  });
+  let leafIdx = 0;
+  function layout(n, depth) {
+    n.depth = depth;
+    if (!n.children.length) { n.col = leafIdx++; n.leaves = 1; return; }
+    n.children.forEach(ch => layout(ch, depth + 1));
+    const first = n.children[0].col, last = n.children[n.children.length - 1].col;
+    n.col = (first + last) / 2;
+    n.leaves = n.children.reduce((a, b) => a + b.leaves, 0);
+  }
+  roots.forEach(r => layout(r, 0));
+  const totalLeaves = Math.max(1, leafIdx);
+  const maxDepth = calls.reduce((m, c) => Math.max(m, byId[c.id].depth), 0);
+  const W = Math.max(360, totalLeaves * 120);
+  const H = (maxDepth + 1) * 80 + 20;
+  const hl = new Set((frame.highlights || []).map(String));
+
+  function pos(n) { return { x: 60 + (n.col + 0.5) * ((W - 80) / totalLeaves), y: 35 + n.depth * 80 }; }
+  let ev = '', nv = '';
+  calls.forEach(c => {
+    const nd = byId[c.id]; const me = pos(nd);
+    if (c.parent !== null && c.parent !== undefined && byId[c.parent]) {
+      const pp = pos(byId[c.parent]);
+      ev += `<line class="edge-l tree" x1="${pp.x}" y1="${pp.y}" x2="${me.x}" y2="${me.y}"></line>`;
+    }
+  });
+  calls.forEach(c => {
+    const nd = byId[c.id]; const me = pos(nd);
+    const cls = 'node-c ' + (c.status || 'active') + (hl.has(String(c.id)) ? ' hl' : '');
+    const w = Math.max(54, String(c.label || '').length * 8 + 10);
+    nv += `<rect class="${cls}" x="${me.x - w/2}" y="${me.y - 16}" rx="10" ry="10" width="${w}" height="32"></rect>`;
+    nv += `<text class="node-t" x="${me.x}" y="${me.y}" style="font-size:12px;">${esc(c.label || '')}</text>`;
+    if (c.ret !== undefined && c.ret !== null) {
+      nv += `<text class="node-sub" x="${me.x}" y="${me.y + 28}" fill="#34d399">→ ${esc(c.ret)}</text>`;
+    }
+  });
+  const wrap = document.createElement('div'); wrap.className='svg-wrap';
+  wrap.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svgDefs()}${ev}${nv}</svg>`;
+  p.appendChild(wrap); return p;
+}
+
+/* ---------- VARS ---------- */
+function renderVars(vars) {
+  const reserved = new Set(['answer','dp_cell','grid_cell','grid_visited','grid_path',
+                            'visited','graph_visited','graph_edges_hl']);
+  const keys = Object.keys(vars || {}).filter(k => !reserved.has(k));
+  if (!keys.length && !(vars && vars.answer !== undefined)) return null;
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>Variables</h4>`;
+  const box = document.createElement('div'); box.className='vars';
+  keys.forEach(k => {
+    const s = document.createElement('span'); s.className='var-chip';
+    s.innerHTML = `${k} = <b>${esc(JSON.stringify(vars[k]))}</b>`;
+    box.appendChild(s);
+  });
+  if (vars && vars.answer !== undefined) {
+    const s = document.createElement('span'); s.className='var-chip answer';
+    s.innerHTML = `answer = <b>${esc(JSON.stringify(vars.answer))}</b>`;
+    box.appendChild(s);
+  }
+  p.appendChild(box); return p;
+}
+
+/* ---------- CODE panel ---------- */
+function renderCode(lines, frame) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  const activeLine = (frame.pointers && (frame.pointers.line !== undefined)) ? frame.pointers.line : null;
+  const p = document.createElement('div'); p.className='panel';
+  p.innerHTML = `<h4>Code</h4>`;
+  const box = document.createElement('div'); box.className='code-panel';
+  lines.forEach((ln, i) => {
+    const row = document.createElement('div');
+    row.className = 'code-line' + (activeLine === i + 1 || activeLine === i ? ' active' : '');
+    row.innerHTML = `<span class="ln">${i + 1}</span><span class="tx">${esc(ln) || ' '}</span>`;
+    box.appendChild(row);
+  });
+  p.appendChild(box); return p;
+}
+
+/* ---------- MAIN RENDER ---------- */
+function render(i) {
+  rebuildState(i);
+  const f = SCRIPT.frames[i] || {};
+
+  $panels.innerHTML = '';
+  $codeHost.innerHTML = '';
+
+  const primary = [], aux = [];
+
+  // PRIMARY visual
+  if (has('recursion_tree')) primary.push(renderRecursion(state.recursion_tree, f));
+  else if (has('tree'))      primary.push(renderTree(state.tree, f));
+  else if (has('graph'))     primary.push(renderGraph(state.graph, f));
+  else if (has('linked_list')) primary.push(renderLinkedList(state.linked_list, f));
+  else if (has('grid'))      primary.push(renderGrid(state.grid));
+  else if (has('dp'))        primary.push(renderDP(state.dp, f));
+  else if (has('heap'))      primary.push(renderArrayLike(state.heap, 'Heap (array view)', f, false));
+  else if (has('array'))     primary.push(renderArrayLike(state.array, 'Array', f, false));
+  else if (has('string'))    primary.push(renderArrayLike(state.string, 'String', f, true));
+
+  // Secondary: if array + also tree/graph/linked_list/grid, show array as aux
+  if (primary.length && has('array') && !primary.some(p => p.querySelector('h4').textContent === 'Array'))
+    aux.push(renderArrayLike(state.array, 'Array', f, false));
+  if (primary.length && has('string') && !primary.some(p => p.querySelector('h4').textContent === 'String'))
+    aux.push(renderArrayLike(state.string, 'String', f, true));
+
+  if (has('stack'))   aux.push(renderStack(state.stack));
+  if (has('queue'))   aux.push(renderQueue(state.queue));
+  if (has('hashmap')) aux.push(renderHashmap(state.hashmap, 'Hash map'));
+  if (has('set'))     aux.push(renderHashmap(state.set, 'Set'));
+  const vp = renderVars(state.vars || {}); if (vp) aux.push(vp);
+
+  if (!primary.length && aux.length) { aux.forEach(x => $panels.appendChild(x)); }
+  else {
+    primary.forEach(x => $panels.appendChild(x));
+    aux.forEach(x => $panels.appendChild(x));
+  }
+  $panels.classList.toggle('two', ($panels.children.length >= 2) && !primary.some(x => x.classList.contains('wide')));
+
+  // Code panel (side column)
+  const codePanel = renderCode(state.code, f);
+  if (codePanel) { $codeHost.appendChild(codePanel); $layout.classList.add('with-code'); }
+  else $layout.classList.remove('with-code');
+
+  // Fallback
+  if (!$panels.children.length && !$codeHost.children.length) {
+    const p = document.createElement('div'); p.className='panel';
+    p.innerHTML = '<h4>State</h4><pre style="color:#9aa6cf;margin:0;white-space:pre-wrap;">'
+                   + esc(JSON.stringify(state, null, 2)) + '</pre>';
+    $panels.appendChild(p);
+  }
+
+  $hi.textContent = f.annotation_hi || '';
+  $en.textContent = f.annotation_en || '';
+  $stepN.textContent = i + 1;
+  $counter.textContent = (i + 1) + ' / ' + total;
+  $bar.style.width = (((i + 1) / Math.max(1, total)) * 100) + '%';
+  $audioSrc.textContent = AUDIO[String(i)] ? 'Sarvam' : 'browser TTS';
+}
+
+function stopAudio() {
+  if (currentAudio) { try { currentAudio.pause(); } catch(e){} currentAudio = null; }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+
+/* -------------------------------------------------------------------------
+ * STITCHED MODE — one continuous audio track drives frame transitions.
+ * ------------------------------------------------------------------------- */
+const STITCHED_OK = !!STITCHED_URI && Array.isArray(FRAME_ENDS) && FRAME_ENDS.length === total;
+let stitchedAudio = null;
+
+function frameForTime(t) {
+  for (let i = 0; i < FRAME_ENDS.length; i++) {
+    if (t < FRAME_ENDS[i]) return i;
+  }
+  return FRAME_ENDS.length - 1;
+}
+
+function startStitched() {
+  stopAudio();
+  if (!stitchedAudio) {
+    stitchedAudio = new Audio(STITCHED_URI);
+    stitchedAudio.preload = 'auto';
+    stitchedAudio.addEventListener('timeupdate', () => {
+      if (!playing) return;
+      const t = stitchedAudio.currentTime;
+      const newIdx = frameForTime(t);
+      if (newIdx !== idx) { idx = newIdx; render(idx); }
+    });
+    stitchedAudio.addEventListener('ended', () => {
+      playing = false;
+      document.getElementById('play').textContent = '▶ Play';
+    });
+  }
+  stitchedAudio.playbackRate = speed;
+  stitchedAudio.play().catch(() => {});
+}
+
+function seekStitched(toFrame) {
+  if (!STITCHED_OK) return;
+  const startT = toFrame === 0 ? 0 : FRAME_ENDS[toFrame - 1];
+  if (!stitchedAudio) {
+    stitchedAudio = new Audio(STITCHED_URI);
+    stitchedAudio.preload = 'auto';
+  }
+  try { stitchedAudio.currentTime = startT; } catch(e){}
+}
+
+/* -------------------------------------------------------------------------
+ * FALLBACK MODE — per-frame audio clips (if stitching unavailable).
+ * ------------------------------------------------------------------------- */
+function playFrame(i) {
+  render(i);
+  stopAudio();
+  const src = AUDIO[String(i)];
+  const frame = SCRIPT.frames[i] || {};
+  const dur = Math.max(600, (frame.duration_ms || 2000) / speed);
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    if (src) {
+      currentAudio = new Audio(src);
+      currentAudio.playbackRate = speed;
+      currentAudio.onended = finish;
+      currentAudio.onerror = () => setTimeout(finish, dur);
+      setTimeout(finish, Math.max(dur + 8000, 15000));
+      currentAudio.play().catch(() => setTimeout(finish, dur));
+    } else if ('speechSynthesis' in window) {
+      const text = frame.annotation_hi || frame.annotation_en || '';
+      if (!text) return setTimeout(finish, dur);
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'hi-IN'; u.rate = speed;
+      u.onend = finish;
+      setTimeout(finish, dur + 1200);
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    } else { setTimeout(finish, dur); }
+  });
+}
+async function playAllPerFrame() {
+  playing = true;
+  document.getElementById('play').textContent = '⏸ Pause';
+  while (playing && idx < total) {
+    await playFrame(idx);
+    if (!playing) break;
+    if (idx < total - 1) idx++; else break;
+  }
+  playing = false;
+  document.getElementById('play').textContent = '▶ Play';
+}
+
+function playAll() {
+  playing = true;
+  document.getElementById('play').textContent = '⏸ Pause';
+  if (STITCHED_OK) {
+    $audioSrc.textContent = 'Sarvam (stitched)';
+    startStitched();
+  } else {
+    playAllPerFrame();
+  }
+}
+
+$gate.onclick = () => { $gate.remove(); started = true; playAll(); };
+document.getElementById('play').onclick = () => {
+  if (!started) { $gate.click(); return; }
+  if (playing) {
+    playing = false;
+    if (STITCHED_OK && stitchedAudio) { try { stitchedAudio.pause(); } catch(e){} }
+    else stopAudio();
+    document.getElementById('play').textContent = '▶ Play';
+  } else { playAll(); }
+};
+document.getElementById('next').onclick = () => {
+  playing = false;
+  if (STITCHED_OK && stitchedAudio) { try { stitchedAudio.pause(); } catch(e){} }
+  else stopAudio();
+  if (idx < total - 1) idx++;
+  render(idx);
+  if (STITCHED_OK) seekStitched(idx);
+  document.getElementById('play').textContent = '▶ Play';
+};
+document.getElementById('prev').onclick = () => {
+  playing = false;
+  if (STITCHED_OK && stitchedAudio) { try { stitchedAudio.pause(); } catch(e){} }
+  else stopAudio();
+  if (idx > 0) idx--;
+  render(idx);
+  if (STITCHED_OK) seekStitched(idx);
+  document.getElementById('play').textContent = '▶ Play';
+};
+document.getElementById('replay').onclick = () => {
+  playing = false;
+  if (STITCHED_OK && stitchedAudio) { try { stitchedAudio.pause(); stitchedAudio.currentTime = 0; } catch(e){} }
+  else stopAudio();
+  idx = 0; render(0);
+  document.getElementById('play').textContent = '▶ Play';
+};
+document.getElementById('speed').onchange = (e) => {
+  speed = parseFloat(e.target.value);
+  if (stitchedAudio) stitchedAudio.playbackRate = speed;
+};
+
+render(0);
+</script>
+</body>
+</html>
