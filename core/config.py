@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     gemini_api_key: str = ""
     groq_api_key: str = ""
+    cerebras_api_key: str = ""
+    openrouter_api_key: str = ""
     sarvam_api_key: str = ""
 
     default_voice: str = "amol"           # amol (deep male) | arvind | meera | diya
@@ -18,6 +20,8 @@ class Settings(BaseSettings):
 
     gemini_model: str = "gemini-2.0-flash"
     groq_model: str = "llama-3.3-70b-versatile"
+    cerebras_model: str = "llama-3.3-70b"
+    openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
     sarvam_model: str = "bulbul:v2"
 
     cache_dir: Path = ROOT / ".codesensei_cache"
@@ -40,6 +44,14 @@ class Settings(BaseSettings):
     @property
     def has_groq(self) -> bool:
         return bool(self.groq_api_key)
+
+    @property
+    def has_cerebras(self) -> bool:
+        return bool(self.cerebras_api_key)
+
+    @property
+    def has_openrouter(self) -> bool:
+        return bool(self.openrouter_api_key)
 
     @property
     def has_sarvam(self) -> bool:

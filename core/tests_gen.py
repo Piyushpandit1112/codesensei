@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from . import cache
+from . import cache, llm
 from .runner import parse_io, run_cases
 
 
@@ -40,55 +40,28 @@ USER_TEMPLATE = (
 
 
 def _call_llm(problem: str, examples_block: str, n: int) -> list[dict]:
-    """Ask the LLM for a JSON array of inputs."""
+    """Ask the LLM for a JSON array of inputs.
+
+    Uses the unified llm.chat_json so we get the full provider fallback
+    chain (Groq → Cerebras → OpenRouter → Gemini).
+    """
     prompt = USER_TEMPLATE.format(problem=problem, examples=examples_block, n=n)
-
     try:
-        from groq import Groq  # type: ignore
-        from .config import settings
-        if settings.groq_api_key:
-            client = Groq(api_key=settings.groq_api_key)
-            resp = client.chat.completions.create(
-                model=settings.groq_model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_INPUTS},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.6,
-            )
-            raw = resp.choices[0].message.content or "{}"
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                for v in data.values():
-                    if isinstance(v, list):
-                        return v
-                return []
-            return data if isinstance(data, list) else []
+        data = llm.chat_json(
+            prompt,
+            system=SYSTEM_INPUTS,
+            provider=llm.available_provider() or "groq",
+            temperature=0.6,
+        )
     except Exception:
-        pass
+        return []
 
-    try:
-        import google.generativeai as genai  # type: ignore
-        from .config import settings
-        if settings.gemini_api_key:
-            genai.configure(api_key=settings.gemini_api_key)
-            model = genai.GenerativeModel(settings.gemini_model)
-            out = model.generate_content(
-                SYSTEM_INPUTS + "\n\n" + prompt,
-                generation_config={"response_mime_type": "application/json"},
-            )
-            raw = (out.text or "{}").strip()
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                for v in data.values():
-                    if isinstance(v, list):
-                        return v
-                return []
-            return data if isinstance(data, list) else []
-    except Exception:
-        pass
-
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for v in data.values():
+            if isinstance(v, list):
+                return v
     return []
 
 

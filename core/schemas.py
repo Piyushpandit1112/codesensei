@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 
 # --- Solution --------------------------------------------------------------
 class ComplexityNote(BaseModel):
-    big_o: str
-    why: str
+    big_o: str = ""
+    why: str = ""
 
 
 class CodeBundle(BaseModel):
@@ -38,14 +38,25 @@ class Resource(BaseModel):
     why: str = ""
 
 
+class ExampleWalkthrough(BaseModel):
+    """One worked test case explained step-by-step for a beginner."""
+    input: str = ""
+    output: str = ""
+    explanation: str = ""   # plain-English narrative: WHY this output
+
+
 class Solution(BaseModel):
-    approach_name: str
-    intuition: str
+    approach_name: str = ""
+    intuition: str = ""
+    # Beginner-friendly restatement of the problem in plain language.
+    problem_explanation: str = ""
+    # Per-test-case walkthroughs: input → output with WHY explained.
+    example_walkthroughs: list[ExampleWalkthrough] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
     code: CodeBundle = Field(default_factory=CodeBundle)
     dry_run: list[str] = Field(default_factory=list)
-    time_complexity: ComplexityNote
-    space_complexity: ComplexityNote
+    time_complexity: ComplexityNote = Field(default_factory=ComplexityNote)
+    space_complexity: ComplexityNote = Field(default_factory=ComplexityNote)
     pitfalls: list[str] = Field(default_factory=list)
     alternatives: list[Alternative] = Field(default_factory=list)
     # Interview prep additions
@@ -82,6 +93,9 @@ class Example(BaseModel):
     input: str = ""
     output: str = ""
     explanation: str = ""
+    # Beginner-friendly trace: what each variable represents and HOW
+    # this specific input produces the output. 2-4 sentences.
+    walkthrough: str = ""
 
 
 class ProblemMeta(BaseModel):
@@ -93,5 +107,11 @@ class ProblemMeta(BaseModel):
     # hashmap, dp_table, string, heap, generic.
     template_hint: str = "array"
     description: str = ""                       # cleaned, concise problem statement
+    # Plain-English restatement: "In simple words..." with every variable
+    # / domain term defined inline. Shown at intake/think time.
+    plain_explanation: str = ""
+    # What each variable in the input means, e.g.
+    # {"nums": "the input array of integers", "target": "the sum we want to reach"}
+    variables: dict[str, str] = Field(default_factory=dict)
     examples: list[Example] = Field(default_factory=list)
     constraints: list[str] = Field(default_factory=list)

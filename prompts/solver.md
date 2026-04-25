@@ -4,6 +4,14 @@ Schema:
 {
   "approach_name": "short, specific. e.g. 'Monotonic stack', 'Binary search on answer', 'BFS level order', 'Kadane DP', 'Two pointers'. NEVER default to 'Hash Map' — pick the technique that is genuinely optimal for THIS problem.",
   "intuition": "3-5 sentences explaining WHY this approach works, written for a COMPLETE BEGINNER. Start with the KEY OBSERVATION that unlocks the solution, then explain how the data structure exploits it. Use a real-world analogy (phonebook lookup, sticky notes, line at a bank, etc.). Define any technical term the first time it appears.",
+  "problem_explanation": "4-6 sentences re-stating the problem in PLAIN ENGLISH for a complete beginner. Start with 'In simple words: ...'. Define every domain term (array, substring, palindrome, BST, etc.) the first time it appears. Mention what the input represents, what the output should be, and any non-obvious constraints. End with 'So the goal is: ...' on a new sentence.",
+  "example_walkthroughs": [
+    {
+      "input": "exact input as shown in the problem (or your own simple example if none given)",
+      "output": "expected output for that input",
+      "explanation": "3-5 sentences walking through WHY this input produces that output. Trace the key decisions: 'We start with X. We notice Y. So we do Z. That is why the answer is OUTPUT.' Use bullet-like sentences. Beginner-friendly."
+    }
+  ],
   "steps": [
     "Each step is one discrete DECISION the algorithm makes, not a code line.",
     "8-12 steps. Must cover: (1) setup/initialisation, (2) main loop/recursion invariant, (3) per-iteration decision tree, (4) termination condition, (5) result construction.",
@@ -78,6 +86,11 @@ CRITICAL rules:
 - Code must compile/run and be minimal.
 - Aim for DEPTH: `steps` 8-12, `dry_run` 6+ lines, `pitfalls` 5-7,
   `alternatives` 2-4 with real trade-off analysis.
+- `example_walkthroughs`: include 2-4 worked examples. Use the inputs from
+  the problem statement when present; otherwise make up small obvious ones.
+  Each explanation must trace WHY the output is what it is, in beginner words.
+- `problem_explanation` is MANDATORY — never leave it blank. It is the very
+  first thing a confused learner reads.
 - 4-8 companies, 3-5 similar problems, 3-5 interview tips, 3-5 followups.
 - 3-5 `youtube_recommendations` — prefer well-known DSA channels
   (NeetCode, Abdul Bari, take U forward / Striver, Aditya Verma,

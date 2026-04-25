@@ -214,8 +214,10 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Status")
-    st.write(f"Gemini: {'✅' if settings.has_gemini else '❌'}")
     st.write(f"Groq: {'✅' if settings.has_groq else '❌'}")
+    st.write(f"Cerebras: {'✅' if settings.has_cerebras else '❌'}")
+    st.write(f"OpenRouter: {'✅' if settings.has_openrouter else '❌'}")
+    st.write(f"Gemini: {'✅' if settings.has_gemini else '❌'}")
     st.write(f"Sarvam TTS: {'✅' if settings.has_sarvam else '⚠️ browser fallback'}")
 
     st.divider()
@@ -244,6 +246,17 @@ with st.sidebar:
             del ss[k]
         st.rerun()
 
+    if st.button("🧹 Clear LLM cache", use_container_width=True,
+                 help="Wipe cached classifications & solutions. Use this if "
+                      "the AI ever gives a wrong/garbled answer that keeps "
+                      "coming back even after retrying."):
+        try:
+            from core import cache as _cache_mod
+            _cache_mod._cache.clear()
+            st.toast("🧹 Cache cleared. Next solve will hit the LLM fresh.", icon="✅")
+        except Exception as e:
+            st.error(f"Couldn't clear cache: {e}")
+
 
 # ---------------------------------------------------------------------------
 # Header
@@ -262,11 +275,19 @@ if ss.stage == "intake":
     txt = st.text_area(
         "Problem statement",
         height=200,
-        placeholder="e.g. Given an array of integers nums and a target, return indices of the two numbers that add up to target…",
+        placeholder="e.g. Given an array of integers nums and a target, return indices of the two numbers that add up to target… Or just type a famous title like 'two sum', '4 sum', '0/1 knapsack'.",
     )
     col_a, _ = st.columns([1, 3])
     if col_a.button("🚀 Start session", type="primary", disabled=not txt.strip()):
-        ss.problem = txt.strip()
+        # If the user typed a short famous title, auto-expand it to the
+        # canonical statement (with examples + constraints) before any
+        # LLM call. This fixes "0 test cases" + "couldn't reach AI" for
+        # very short inputs that the LLM can't classify.
+        from core import known_problems
+        expanded, matched = known_problems.expand_if_known(txt.strip())
+        ss.problem = expanded
+        if matched is not None:
+            st.toast(f"📚 Recognised famous problem: {matched.title}", icon="✨")
         ss.is_demo = False
         with st.spinner("Classifying…"):
             try:
@@ -279,7 +300,9 @@ if ss.stage == "intake":
         ss.hint_texts = []
         st.rerun()
     st.info(
-        "No API keys? Click **Load Two Sum demo** in the sidebar to try the full flow offline."
+        "💡 **Shortcut:** type just **'two sum'**, **'4 sum'**, **'0/1 knapsack'**, etc. — "
+        "we'll auto-load the full LeetCode statement with examples. Or paste your "
+        "own problem with examples for any custom question."
     )
 
 # ---------------------------------------------------------------------------
@@ -350,19 +373,63 @@ elif ss.stage == "think":
             unsafe_allow_html=True,
         )
 
+        # ---- Plain-English explanation ---------------------------------
+        if getattr(meta, "plain_explanation", ""):
+            st.markdown(
+                f'<div class="cs-card" style="margin-top:12px;'
+                f'background:linear-gradient(135deg,#1a2547,#172040);'
+                f'border-left:4px solid #7c9cff;padding:14px 16px;">'
+                f'<div style="font-size:12px;font-weight:800;color:#a8b8ff;'
+                f'letter-spacing:.4px;margin-bottom:6px;">'
+                f'💡 WHAT THIS PROBLEM IS ASKING</div>'
+                f'<div style="color:#dde4ff;line-height:1.65;font-size:14px;">'
+                f'{meta.plain_explanation}</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Variable glossary ----------------------------------------
+        variables = getattr(meta, "variables", {}) or {}
+        if variables:
+            st.markdown("#### 🔤 What each variable means")
+            rows = "".join(
+                f'<tr><td style="padding:6px 12px;font-family:ui-monospace,monospace;'
+                f'color:#7c9cff;font-weight:700;border-bottom:1px solid #2a3158;">'
+                f'{name}</td>'
+                f'<td style="padding:6px 12px;color:#dde4ff;font-size:13px;'
+                f'border-bottom:1px solid #2a3158;">{desc}</td></tr>'
+                for name, desc in variables.items()
+            )
+            st.markdown(
+                f'<div class="cs-card" style="padding:6px 0;">'
+                f'<table style="width:100%;border-collapse:collapse;">{rows}</table>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         if meta.examples:
-            st.markdown("#### 📌 Examples")
+            st.markdown("#### 📌 Examples — explained step by step")
             for i, ex in enumerate(meta.examples, 1):
+                walkthrough_html = ""
+                if getattr(ex, "walkthrough", ""):
+                    walkthrough_html = (
+                        f'<div style="margin-top:10px;padding:10px 12px;'
+                        f'background:rgba(124,156,255,.08);border-left:3px solid #5dd2a5;'
+                        f'border-radius:6px;color:#dde4ff;font-size:13px;line-height:1.6;">'
+                        f'<b style="color:#ffd479;">🧭 How it works:</b> {ex.walkthrough}'
+                        f'</div>'
+                    )
                 st.markdown(
                     f'<div class="cs-sim">'
                     f'<div style="color:#9aa6cf;font-size:11px;font-weight:800;'
                     f'letter-spacing:.08em;text-transform:uppercase;">Example {i}</div>'
                     f'<div style="font-family:ui-monospace,monospace;font-size:13px;'
-                    f'color:#e7ecff;margin-top:6px;"><b>Input:</b> {ex.input}</div>'
+                    f'color:#e7ecff;margin-top:6px;"><b style="color:#7c9cff;">'
+                    f'Input:</b> {ex.input}</div>'
                     f'<div style="font-family:ui-monospace,monospace;font-size:13px;'
                     f'color:#6ee7b7;"><b>Output:</b> {ex.output}</div>'
                     + (f'<div style="color:#c9d2f5;font-size:13px;margin-top:6px;">'
                        f'<i>💡 {ex.explanation}</i></div>' if ex.explanation else "")
+                    + walkthrough_html
                     + '</div>',
                     unsafe_allow_html=True,
                 )
@@ -441,6 +508,9 @@ elif ss.stage == "think":
                         if ss.solution is None:
                             ss.solution = tutor.solve(ss.problem)
                         reference_code = (ss.solution.code.python if ss.solution else "") or ""
+                    except tutor.NeedsClarification as e:
+                        st.warning(f"🤔 {e}")
+                        st.info("Grading will only use the visible example cases until you add more details.")
                     except Exception as e:
                         st.warning(
                             f"Couldn't fetch reference solution ({e}). "
@@ -823,6 +893,21 @@ elif ss.stage == "solved":
         with st.spinner("Generating solution…"):
             try:
                 ss.solution = tutor.solve(ss.problem)
+            except tutor.NeedsClarification as e:
+                st.warning(f"🤔 {e}")
+                with st.form("clarify_form"):
+                    extra = st.text_area(
+                        "Tell me more about the problem",
+                        placeholder="Example:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\n\nConstraints: 2 <= n <= 10^4",
+                        height=160,
+                    )
+                    submitted = st.form_submit_button("🔁 Try again with this info", type="primary")
+                if submitted and extra.strip():
+                    ss.problem = ss.problem.rstrip() + "\n\n--- Additional info from user ---\n" + extra.strip()
+                    ss.solution = None
+                    ss.meta = None
+                    st.rerun()
+                st.stop()
             except Exception as e:
                 st.error(f"Could not generate solution: {e}")
                 st.stop()
@@ -857,6 +942,41 @@ elif ss.stage == "solved":
 
     st.markdown(f"### 4️⃣ {sol.approach_name}")
     st.write(sol.intuition)
+
+    # ---- Plain-English problem explanation ------------------------------
+    if getattr(sol, "problem_explanation", ""):
+        st.markdown(
+            f'<div class="cs-card" style="margin:10px 0 14px 0;'
+            f'background:linear-gradient(135deg,#1a2547,#172040);'
+            f'border-left:4px solid #7c9cff;padding:14px 16px;">'
+            f'<div style="font-size:13px;font-weight:800;color:#a8b8ff;'
+            f'letter-spacing:.4px;margin-bottom:6px;">💡 WHAT THIS PROBLEM IS ASKING</div>'
+            f'<div style="color:#dde4ff;line-height:1.65;font-size:14px;">'
+            f'{sol.problem_explanation}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    # ---- Per-test-case walkthroughs (input → output → why) --------------
+    walkthroughs = getattr(sol, "example_walkthroughs", []) or []
+    if walkthroughs:
+        st.markdown("**🧭 Test cases — explained step by step**")
+        for i, w in enumerate(walkthroughs, 1):
+            st.markdown(
+                f'<div class="cs-card" style="margin-bottom:10px;padding:12px 14px;'
+                f'border-left:3px solid #5dd2a5;">'
+                f'<div style="color:#9aa6cf;font-size:12px;font-weight:700;'
+                f'letter-spacing:.3px;">CASE {i}</div>'
+                f'<div style="font-family:ui-monospace,monospace;font-size:13px;'
+                f'margin-top:6px;color:#dde4ff;">'
+                f'<b style="color:#7c9cff;">Input:</b> {w.input}<br>'
+                f'<b style="color:#5dd2a5;">Output:</b> {w.output}'
+                f'</div>'
+                + (f'<div style="margin-top:8px;color:#c9d2f5;font-size:13px;'
+                   f'line-height:1.6;"><b style="color:#ffd479;">Why:</b> '
+                   f'{w.explanation}</div>' if w.explanation else "")
+                + '</div>',
+                unsafe_allow_html=True,
+            )
 
     # ---- Problem card (title / description / examples / constraints) -----
     _title = meta.title or "Problem"
